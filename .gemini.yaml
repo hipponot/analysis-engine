@@ -1,0 +1,46 @@
+# .gemini.yaml
+# Configuration for Model Context Protocol (MCP) servers.
+# These servers provide specialized tools and context for the Gemini CLI agent.
+
+servers:
+  # Terraform MCP Server for managing infrastructure as code.
+  - name: tf
+    displayName: Terraform
+    description: Manages Terraform infrastructure (plan, apply, output).
+    spec:
+      # Runs the server via Docker, mounting the current project directory.
+      # Assumes the user has Docker installed and running.
+      command: [
+        "docker", "run", "-i", "--rm",
+        "-v", "${PWD}:/workspace",
+        "-w", "/workspace",
+        "ghcr.io/google-gemini/mcp-servers/terraform:latest"
+      ]
+
+  # AWS MCP Server for interacting with AWS services.
+  - name: aws
+    displayName: AWS
+    description: Provides tools for interacting with AWS services (e.g., ECR, EKS).
+    spec:
+      # Runs the server via Docker, passing AWS credentials from the environment.
+      command: [
+        "docker", "run", "-i", "--rm",
+        "-e", "AWS_ACCESS_KEY_ID",
+        "-e", "AWS_SECRET_ACCESS_KEY",
+        "-e", "AWS_SESSION_TOKEN",
+        "-e", "AWS_REGION",
+        "ghcr.io/google-gemini/mcp-servers/aws:latest"
+      ]
+
+  # Git MCP Server for managing the git repository.
+  - name: git
+    displayName: Git
+    description: Provides tools for Git operations (commit, branch, status).
+    spec:
+      # Runs the server via Docker, mounting the current project directory.
+      command: [
+        "docker", "run", "-i", "--rm",
+        "-v", "${PWD}:/workspace",
+        "-w", "/workspace",
+        "ghcr.io/google-gemini/mcp-servers/git:latest"
+      ]
