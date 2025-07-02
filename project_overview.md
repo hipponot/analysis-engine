@@ -7,7 +7,7 @@ Build a cloud-abstracted, scalable analysis orchestration engine that can effici
 
 ### **Target Audience**
 - **Primary**: Open source community and organizations needing flexible data processing pipelines
-- **Secondary**: Research institutions, media companies, and analytics teams
+- **Secondary**: Research institutions and analytics teams
 - **Adoption Goal**: Easy setup and contribution for DevOps engineers and data scientists
 
 ---
