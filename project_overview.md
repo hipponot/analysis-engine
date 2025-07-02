@@ -47,21 +47,26 @@ Build a cloud-abstracted, scalable analysis orchestration engine that can effici
 ```yaml
 Tool: Terraform >= 1.0
 Modules:
-  - Core EKS cluster with networking
+  - Core EKS cluster with networking (terraform-aws-modules/eks v20.37.1)
   - Node groups (general + GPU)
   - Storage (S3 buckets + Glue database)
   - IAM roles with IRSA
   - Security groups and networking
+Providers:
+  - AWS Provider v5.100.0
+  - Kubernetes Provider v2.37.1
+  - Helm Provider v2.17.0
 ```
 
 ### **Container Orchestration**
 ```yaml
-Kubernetes Version: 1.27+
+Kubernetes Version: 1.33+
 Executor: KubernetesExecutor
+Apache Airflow: Helm Chart v1.17.0 (Airflow 3.0+)
+Auto-scaling: KEDA v2.17.2 + Cluster Autoscaler
 Node Types:
   - General: t3/m5 medium/large (spot instances)
   - GPU: g4dn/g5 xlarge/2xlarge (spot instances)
-Auto-scaling: KEDA + Cluster Autoscaler
 ```
 
 ### **Storage Architecture**
@@ -126,12 +131,16 @@ Storage: Raw data → processed → Iceberg analytics
 ```yaml
 Primary Metric: Airflow task queue depth
 Scaling Thresholds:
-  - General workers: > 5 queued tasks
-  - GPU workers: > 1 queued GPU task
+  - General workers: > 5 queued tasks  
+  - GPU workers: > 1 queued GPU task (scales from 0)
 Scaling Behavior:
   - Scale up Goal: < 5 minutes (node provisioning dependent)
-  - Scale down: 5-minute cooldown
-  - Scale to zero: Supported for cost efficiency
+  - Scale down: 5-minute cooldown for general, 5-minute for GPU
+  - Scale to zero: Fully supported - GPU nodes start at 0 capacity
+GPU Cost Optimization:
+  - Zero idle costs: GPU nodes only run when GPU tasks are queued
+  - Tainted nodes: Only GPU workloads scheduled on GPU instances
+  - Fast provisioning: GPU-optimized AMI for quicker startup
 ```
 
 ### **Performance Goals**
@@ -179,8 +188,30 @@ CloudStorageOperator:
   - Future: GCS, Azure Blob Storage
 
 GPUKubernetesOperator:
-  - GPU resource allocation
-  - Proper node affinity and tolerations
+  - GPU resource allocation (nvidia.com/gpu: 1)
+  - Automatic node affinity and tolerations
+  - Zero-to-scale GPU node provisioning
+  - Queue: 'gpu' for automatic scaling triggers
+```
+
+### **GPU Workload Configuration**
+```python
+# Example GPU task configuration in Airflow DAG
+gpu_task = KubernetesPodOperator(
+    task_id='gpu_processing',
+    queue='gpu',  # Triggers GPU node scaling from 0
+    tolerations=[{
+        'key': 'nvidia.com/gpu',
+        'operator': 'Equal', 
+        'value': 'true',
+        'effect': 'NoSchedule'
+    }],
+    node_selector={'worker_type': 'gpu'},
+    resources={
+        'requests': {'nvidia.com/gpu': 1, 'memory': '4Gi'},
+        'limits': {'nvidia.com/gpu': 1, 'memory': '8Gi'}
+    }
+)
 ```
 
 ### **Deployment Strategy**

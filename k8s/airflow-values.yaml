@@ -1,0 +1,109 @@
+# Airflow configuration
+airflow:
+  # Use KubernetesExecutor
+  executor: KubernetesExecutor
+  
+  # Core configuration
+  config:
+    # Core settings
+    core:
+      load_examples: false
+      dags_are_paused_at_creation: true
+    
+    # Webserver settings
+    webserver:
+      enable_proxy_fix: true
+      rbac: true
+      expose_config: true
+    
+    # KubernetesExecutor configuration
+    kubernetes_executor:
+      worker_pods_creation_batch_size: 10
+      worker_pods_pending_timeout: 300
+
+  # Webserver configuration
+  webserver:
+    replicas: 1
+    service:
+      type: LoadBalancer
+    extraEnv:
+      - name: AIRFLOW__CORE__LOAD_EXAMPLES
+        value: "false"
+
+
+
+# Enable database initialization
+migrateDatabaseJob:
+  enabled: true
+
+# Enable standard naming
+useStandardNaming: true
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  auth:
+    enablePostgresUser: true
+
+# Redis configuration  
+redis:
+  enabled: true
+
+# Disable Flower (using KubernetesExecutor)
+flower:
+  enabled: false
+
+# Scheduler configuration
+scheduler:
+  replicas: 1
+
+# Workers configuration
+workers:
+  persistence:
+    enabled: false
+  replicas: 1
+
+# Service Account with IRSA for S3 access
+serviceAccount:
+  create: true
+  name: airflow-sa
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.cluster_name}-airflow-s3-access"
+
+# GPU pod template for zero-to-scale GPU workloads
+podTemplate: |
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: airflow-worker-gpu
+    labels:
+      app: airflow-worker
+      tier: airflow
+      component: worker
+      release: airflow
+  spec:
+    # Target GPU nodes specifically
+    nodeSelector:
+      worker_type: gpu
+      node.kubernetes.io/instance-type: gpu
+    
+    # Tolerate GPU node taints
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+    
+    # GPU resource requests
+    containers:
+      - name: base
+        image: apache/airflow:3.0.2
+        resources:
+          requests:
+            nvidia.com/gpu: 1
+            memory: "4Gi"
+            cpu: "1000m"
+          limits:
+            nvidia.com/gpu: 1
+            memory: "8Gi"
+            cpu: "2000m" 
